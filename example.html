@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>leaflet-map-csv</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+
+  <!-- Load Leaflet code library - see updates at http://leafletjs.com/download.html -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+  <!-- Load jQuery and PapaParse to read data from a CSV file -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+
+  <!-- Optional: Add plugin to give us an easy way to put icons in map markers -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.min.js" integrity="sha512-8BqQ2RH4L4sQhV41ZB24fUc1nGcjmrTA6DILV/aTPYuUzo+wBdYdp0fvQ76Sxgf36p787CXF7TktWlcxu/zyOg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css" integrity="sha512-cUoWMYmv4H9TGP4hbm1mIjYo90WzIQFo/5jj+P5tQcDTf+iVR59RyIj/a9fRsBxzxt5Dnv/Ex7MzRIxcDwaOLw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Optional: Load the ion iconset -->
+  <!-- Find icon names here: https://ionic.io/ionicons/v2 -->
+  <link rel="stylesheet" href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+
+  <!-- Position the map HTML with Cascading Style Sheet (CSS) -->
+  <style>
+    body { margin:0; padding:0; }
+    #map { position: absolute; top:0; bottom:0; right:0; left:0; }
+  </style>
+
+</head>
+<body>
+
+  <!-- Insert HTML division tag to hold the map -->
+  <div id="map"></div>
+
+  <!-- Insert Javascript (.js) code to create the map. This is where we use Leaflet, via the L object. -->
+  <script>
+
+  // Set up initial map center and zoom level
+  var map = L.map('map', {
+    center: [40.71, -73.95], // EDIT latitude, longitude to re-center map
+    zoom: 11,  // EDIT from 1 to 18 -- decrease to zoom out, increase to zoom in
+    tap: false
+  });
+
+  // DEFINE LAYERS
+
+  // basemaps
+  // see more basemap options at https://leaflet-extras.github.io/leaflet-providers/preview/
+  var light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attribution">CARTO</a>'
+  });
+
+  var OpenStreetMap_HOT = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> hosted by <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
+  });
+
+  // Overlay - Example of creating a layer from a CSV file
+  var medIcon = L.AwesomeMarkers.icon({
+    icon: 'medkit',
+    markerColor: 'blue',
+    prefix: 'ion',
+  });
+
+  // Create a layer group and then read markers data from NYChospitals.csv and add to group
+  var hospitalLayer = L.layerGroup();
+  $.get('./data/NYChospitals.csv', function(csvString) {
+
+    // Use PapaParse to convert string to array of objects
+    var data = Papa.parse(csvString, {header: true, dynamicTyping: true}).data;
+
+    // For each row in data, create a marker and add it to the map
+    // For each row, columns `LATITUDE`, `LONGITUDE` are used to position the marker, and FACNAME is used in the popup.
+    for (var i in data) {
+      var row = data[i];
+
+      var marker = L.marker([row.LATITUDE, row.LONGITUDE], {
+        opacity: 1,
+        icon: medIcon,
+      }).bindPopup(row.FACNAME);
+
+      marker.addTo(hospitalLayer);
+    }
+
+  });
+
+  // Example of creating a layer from GeoJSON
+  // Create the icon
+  var personIcon = L.AwesomeMarkers.icon({
+    icon: 'ios-body',
+    markerColor: 'orange',
+    prefix: 'ion',
+  });
+
+  // Define the layer and apply icon to it 
+  var commCenterLayer = new L.geoJson(null, {
+    pointToLayer: function (feature, latlng) {
+      return L.marker(latlng, {
+        icon: personIcon
+      });
+    },
+    onEachFeature: function (feature, layer) {
+      layer.bindPopup(feature.properties.name);
+    }
+  });
+  
+  // Load features from the geojson file into the layer
+  $.get({
+    dataType: "json",
+    url: "./data/nyc-community_centers.geojson",
+    success: function(data) {
+        $(data.features).each(function(key, data) {
+          commCenterLayer.addData(data);
+        });
+    }
+  });
+
+  // Create the layer control panel
+  var layerControl = L.control.layers( null, null, {
+    position: "topright",
+    collapsed: false
+  }).addTo(map);
+
+  // Add basemaps and overlays to the layer control
+  layerControl.addBaseLayer(light, 'Carto Light basemap');
+  layerControl.addBaseLayer(OpenStreetMap_HOT, 'OpenStreetMap');
+  layerControl.addOverlay(hospitalLayer, 'Hospitals');
+  layerControl.addOverlay(commCenterLayer, 'Community Centers');
+
+  // Add layers to map to show up by default
+  light.addTo(map)
+  hospitalLayer.addTo(map)
+
+  // Set proper link to Github repo in attribution control
+  map.attributionControl.setPrefix(
+    'View <a href="https://github.com/healthyregions/leaflet-asset-map" target="_blank">code on GitHub</a>'
+  );
+
+  </script>
+</body>
+</html>
