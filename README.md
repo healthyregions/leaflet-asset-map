@@ -29,6 +29,76 @@ For more information on customization, see [Leaflet documentation](https://leafl
 
 For valid icon names, see [ionic.io/ionicons/v2](https://ionic.io/ionicons/v2). Click an icon, and use the name you see _without_ including the `ion-` prefix.
 
+## Adding API Keys
+
+You may need to add API keys (sometimes called "API tokens") to your map in order to access certain map services. It is best practice that you keep these keys _out_ of version control, so that they are not publicly visible in this repository. The following steps will achieve this for simple Github Pages implementations.
+
+> Your API keys won't be _completely_ secret, people could find them by digging into your published web map, but it's most important that they are not stored in Github.
+
+### 1. Set the API Key as a secret in your repo
+
+- Go to **Settings** > **Secrets and variables** > **Actions**
+- In the **Secrets** tab click **Manage Environment Secrets**
+- Select the **github-pages** environment.
+- Scroll down and choose **Add environment secret**
+- In the box that appears, enter the name of your variable. Format the variable name like `MAPBOX_API_TOKEN`, and then paste your key into the value section.
+    ![gh pages with actions](./images/set-env-secret.png)
+- Click **Add secret**.
+
+This API key value will now be accessible during the build process for Github Pages, so now we'll configure that build process.
+
+### 2. Configure Github Pages using the Static HTML workflow
+
+_If you have already configured Github Pages using the classic build method, no problem, just follow these steps anyway.
+
+- In **Settings** > **Pages** set the **Source** dropdown to **Github Actions**
+- Choose the **Static HTML** option and click **Configure**
+    ![gh pages with actions](./images/gh-configure-pages.png)
+- Don't make any changes to the code you see yet, just click **Commit Changes**
+
+You will now have the following file in your repo: `.github/workflows/static.yml`. In the next step we'll edit this file.
+
+### 3. Write a `secrets.js` file during the build process
+
+Find `.github/workflows/static.yml` and begin editing it. You'll notice the final chunk is called `steps:` and it lists the steps that are taken by the workflow to turn your repo into a published website (it's mostly just copying files). We'll add a new step in the middle that writes our secret into a new file.
+
+- Find the first steps, called "Checkout" and "Setup Pages". Between these two, insert a new one that looks like this.
+    ```
+    - name: Write secrets file
+      run: echo "const mapboxToken = '${{ secrets.MAPBOX_API_TOKEN }}';" > secrets.js
+    ```
+- The first three steps in the workflow should now look like this:
+    ```
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Write secrets file
+      run: echo "const mapboxToken = '${{ secrets.MAPBOX_API_TOKEN }}';" > secrets.js
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    ```
+    Make sure to match the indents of the existing content!
+- Click **Commit changes** to save.
+
+What is happening here? The command
+
+```
+echo "const mapboxToken = '${{ secrets.MAPBOX_API_TOKEN }}';" > secrets.js
+```
+
+will write a line of text to a file called `secrets.js`. That line defines a variable called `mapboxToken` in JavaScript, and includes `${{ secrets.MAPBOX_API_TOKEN }}` which is the Github Actions way of looking within your repository secrets and finding the `MAPBOX_API_TOKEN` that we defined earlier.
+
+### 4. Load the `secrets.js` script in your app
+
+Finally, all we need to do is load this new file into our HTML.
+
+- Find your `index.html` file, and begin editing it.
+- Somewhere within the `<head>` section add this line:
+    ```
+    <script src="./secrets.js" />
+    ```
+
+That's it! Now, within any JavaScript that comes _after_ this new line, you'll be able to use the variable `mapboxToken` whenever you need to plugin the API Key. Exactly how and where you use that token may depend on the service you are using.
+
 ## Credits
 
 Original template and tutorial by Jack Dougherty and Ilya Ilyankou, see [handsondataviz.org/leaflet-maps-with-csv.html](https://handsondataviz.org/leaflet-maps-with-csv.html), updated by Adam Cox at Healthy Regions & Policies Lab.
