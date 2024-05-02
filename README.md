@@ -4,7 +4,7 @@
 
 Build a simple asset map using Leaflet.
 
-![Screenshot](leaflet-example-map.jpg)
+![Screenshot](./images/leaflet-example-map.jpg)
 
 ## Demo
 
